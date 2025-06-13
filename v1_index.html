@@ -1,0 +1,41 @@
+Result Size: 1390 x 786
+-
+                        renderHistoricalData(allData, formattedDate);
+                    } else {
+                        console.warn("Could not set date picker default as timestamp of latest entry is unparseable:", latestEntry[normalizeKey('ประทับเวลา')]);
+                    }
+                } else {
+                    datePicker.value = ''; // Clear date picker if no data
+                }
+​
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                let errorMessage = "ไม่สามารถดึงข้อมูลจาก API ได้: " + error.message;
+                // Add specific advice for HTTP 400 error
+                if (error.message.includes("HTTP error! status: 400")) {
+                    errorMessage += "\n\nข้อเสนอแนะ: ปัญหานี้อาจเกิดจาก URL API ไม่ถูกต้อง, Google Sheet ไม่ได้ตั้งค่าการแชร์เป็นสาธารณะ, หรือบริการ opensheet.elk.sh มีปัญหา กรุณาตรวจสอบการตั้งค่าเหล่านี้ครับ";
+                }
+                showMessageBox("ข้อผิดพลาด", errorMessage);
+                latestDataContainer.innerHTML = `
+                    <div class="card md:col-span-3 lg:col-span-3 p-8 text-center text-red-600">
+                        <p>เกิดข้อผิดพลาดในการโหลดข้อมูล. กรุณาลองใหม่อีกครั้ง</p>
+                    </div>
+                `;
+            }
+        }
+​
+        // Event listener for date picker change
+        datePicker.addEventListener('change', (event) => {
+            const selectedDate = event.target.value; // Format:YYYY-MM-DD
+            if (allData.length > 0) {
+                renderHistoricalData(allData, selectedDate);
+            }
+        });
+​
+        // Initial data fetch on page load
+        window.onload = fetchData;
+​
+    </script>
+</body>
+</html>
+​
