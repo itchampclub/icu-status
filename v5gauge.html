@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OUH Negative Room Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Gauge.js CDN for circular gauges -->
+    <script src="https://bernii.github.io/gauge.js/dist/gauge.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+            padding: 1.5rem; /* p-6 */
+        }
+        .data-point {
+            display: flex;
+            flex-direction: column; /* Changed to column for better stacking on small screens */
+            align-items: flex-start; /* Align text to start */
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        .data-point:last-child {
+            border-bottom: none;
+        }
+        .value {
+            font-weight: 600; /* font-semibold */
+            color: #1f2937; /* text-gray-900 */
+            margin-top: 0.25rem; /* Small space below label */
+            text-align: center; /* Center the value text above the gauge */
+            width: 100%; /* Make value span full width for centering */
+        }
+        .text-label {
+            color: #4b5563; /* text-gray-700 */
+            font-size: 0.95rem; /* Slightly larger label */
+            text-align: center; /* Center the label above the value */
+            width: 100%; /* Make label span full width for centering */
+        }
+        .room-status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        /* Custom colors for status */
+        .status-ok { background-color: #10b981; } /* emerald-500 */
+        .status-warning { background-color: #f59e0b; } /* amber-500 */
+        .status-danger { background-color: #ef4444; } /* red-500 */
+
+        /* Custom text colors for values based on status */
+        .text-status-ok { color: #059669; /* emerald-600 */ }
+        .text-status-warning { color: #d97706; /* amber-600 */ }
+        .text-status-danger { color: #dc2626; /* red-600 */ }
+
+        /* Custom scrollbar for table */
+        #historicalDataTableContainer {
+            overflow-x: auto; /* Enable horizontal scrolling for wide tables */
+            max-height: 400px; /* Limit height and allow vertical scrolling */
+            overflow-y: auto;
+        }
+
+        #historicalDataTableContainer::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+
+        #historicalDataTableContainer::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #historicalDataTableContainer::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #historicalDataTableContainer::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Styles for the gauge.js canvas */
+        .gauge-canvas-wrapper {
+            width: 200px; /* Fixed width for consistency of circular gauge */
+            height: 100px; /* Fixed height, aspect ratio adjusted by gauge.js */
+            margin: 0 auto; /* Center the gauge */
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .gauge-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Chart specific styling */
+        .chart-container {
+            position: relative;
+            height: 350px; /* Fixed height for charts */
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        .chart-legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+        }
+
+        .chart-legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center">
+            <span class="bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-blue-600">
+                แดชบอร์ดข้อมูล Negative Room
+            </span>
+        </h1>
+
+        <!-- Latest Data Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">ข้อมูลล่าสุด</h2>
+            <div id="latestDataContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Room data cards will be injected here by JavaScript -->
+                <div class="card flex flex-col items-center justify-center p-8">
+                    <svg class="animate-spin h-8 w-8 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-4 text-gray-600">กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Data Section -->
+        <div class="card mb-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">ข้อมูลย้อนหลัง</h2>
+            <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                <label for="monthPicker" class="text-lg font-medium text-gray-700">เลือกเดือน/ปี:</label>
+                <input type="month" id="monthPicker" class="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-900">
+            </div>
+
+            <div id="historicalDataTableContainer" class="w-full mt-6 bg-white rounded-lg shadow-sm">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประทับเวลา</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ante Room 1 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Isolation Room 1 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ante Room 2 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Isolation Room 2 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ante Room 3 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Isolation Room 3 (Pa)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ผู้บันทึก</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historicalDataTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">
+                                เลือกเดือน/ปีเพื่อดูข้อมูลย้อนหลัง
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="noHistoricalDataMessage" class="text-center text-gray-600 mt-4 hidden">ไม่มีข้อมูลสำหรับเดือน/ปีนี้</p>
+        </div>
+
+        <!-- Trend / Analytic Section -->
+        <div id="trendAnalysisSection" class="card mb-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">ข้อมูลแนวโน้ม/การวิเคราะห์</h2>
+            <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                <button id="show30DaysTrend" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">30 วันย้อนหลัง</button>
+                <button id="showYearlyTrend" class="px-5 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Trend รายปี</button>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mt-6">
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Ante Room 1 (Pa) Trend</h3>
+                    <canvas id="anteRoom1Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Isolation Room 1 (Pa) Trend</h3>
+                    <canvas id="isolationRoom1Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Ante Room 2 (Pa) Trend</h3>
+                    <canvas id="anteRoom2Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Isolation Room 2 (Pa) Trend</h3>
+                    <canvas id="isolationRoom2Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Ante Room 3 (Pa) Trend</h3>
+                    <canvas id="anteRoom3Chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Isolation Room 3 (Pa) Trend</h3>
+                    <canvas id="isolationRoom3Chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Box for Alerts -->
+        <div id="messageBox" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4" id="messageBoxTitle">ข้อความ</h3>
+                <p class="text-gray-700 mb-6" id="messageBoxContent"></p>
+                <div class="flex justify-end">
+                    <button id="messageBoxCloseButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">ตกลง</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // DO NOT EDIT THIS URL - User's explicit instruction
+        const API_URL = 'https://opensheet.elk.sh/1WXyUPJ4d4pTzFA7gJwhwcatqX29pe_xuze69GRwPU98/%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%95%E0%B8%AD%E0%B8%9A%E0%B9%81%E0%B8%9A%E0%B8%9A%E0%B8%9F%E0%B8%AD%E0%B8%A3%E0%B9%8C%E0%B8%A1%201';
+        let allData = []; // To store all fetched data
+        let chartInstances = {}; // Object to hold all Chart.js instances by their canvas ID
+        let gaugeInstances = {}; // Object to hold all Gauge.js instances by their canvas ID
+
+        const latestDataContainer = document.getElementById('latestDataContainer');
+        const monthPicker = document.getElementById('monthPicker'); // Changed from datePicker
+        const historicalDataTableBody = document.getElementById('historicalDataTableBody');
+        const noHistoricalDataMessage = document.getElementById('noHistoricalDataMessage');
+        const messageBox = document.getElementById('messageBox');
+        const messageBoxTitle = document.getElementById('messageBoxTitle');
+        const messageBoxContent = document.getElementById('messageBoxContent');
+        const messageBoxCloseButton = document.getElementById('messageBoxCloseButton');
+        const show30DaysTrendButton = document.getElementById('show30DaysTrend'); // Renamed from show7DaysTrend
+        const showYearlyTrendButton = document.getElementById('showYearlyTrend'); // Renamed from show30DaysTrend
+
+        // Define fixed ranges for gauges and charts as requested: -30 to 30 Pa
+        const GAUGE_MIN = -30;
+        const GAUGE_MAX = 30;
+
+
+        // Function to show custom message box
+        function showMessageBox(title, content) {
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = content;
+            messageBox.classList.remove('hidden');
+        }
+
+        // Event listener for message box close button
+        messageBoxCloseButton.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
+        // Helper to parse date string "DD/MM/YYYY, HH:MM:SS" to Date object
+        function parseThaiTimestamp(timestampStr) {
+            if (typeof timestampStr !== 'string' || !timestampStr) {
+                console.warn("Invalid timestamp string provided to parseThaiTimestamp:", timestampStr);
+                return null;
+            }
+            const trimmedStr = timestampStr.trim();
+            // Regex to precisely match "DD/MM/YYYY, HH:MM:SS" or "D/M/YYYY, H:MM:SS" formats
+            // Anchors `^` and `$` ensure the entire string matches the pattern
+            // `\s*` allows for zero or more spaces after the comma
+            const parts = trimmedStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})$/);
+
+            if (parts) {
+                const day = parseInt(parts[1], 10);
+                const month = parseInt(parts[2], 10) - 1; // Month is 0-indexed in Date object
+                const year = parseInt(parts[3], 10);
+                const hour = parseInt(parts[4], 10);
+                const minute = parseInt(parts[5], 10);
+                const second = parseInt(parts[6], 10);
+
+                // Basic validation for date and time components
+                if (day < 1 || day > 31 || month < 0 || month > 11 || year < 1900 || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+                    console.warn("Parsed date components out of valid range from timestamp:", timestampStr, { day, month, year, hour, minute, second });
+                    return null;
+                }
+
+                return new Date(year, month, day, hour, minute, second);
+            }
+            console.warn("Failed to parse timestamp string with regex:", timestampStr);
+            return null;
+        }
+
+        // Utility function to normalize JSON keys by replacing whitespace with underscores
+        function normalizeKey(key) {
+            // Replace all whitespace characters (including non-breaking spaces \u00A0) with a single underscore
+            // Then remove any leading/trailing underscores and multiple underscores
+            return key.trim().replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        }
+
+        /**
+         * Determines the status and color properties for a single pressure value.
+         * Logic: < 0 is Green (OK), >= 0 is Red (Danger).
+         * @param {number} pressureValue The numeric pressure value.
+         * @returns {object} An object with text, textColorClass, and meterColorClass.
+         */
+        function getPressureClassification(pressureValue) {
+            if (isNaN(pressureValue)) {
+                return { text: 'N/A', textColorClass: 'text-gray-500', meterColorClass: '#E0E0E0' /* gray for N/A */ };
+            }
+            if (pressureValue < 0) {
+                return { text: 'ปกติ', textColorClass: 'text-status-ok', meterColorClass: '#10b981' /* emerald-500 */ };
+            } else { // value >= 0
+                return { text: 'ผิดปกติ/อันตราย', textColorClass: 'text-status-danger', meterColorClass: '#ef4444' /* red-500 */ };
+            }
+        }
+
+        /**
+         * Determines the specific status text for a room based on Ante/Isolation pressure logic.
+         * Logic: If room is 'เปิดระบบ' AND Isolation_Pa >= (Ante_Pa - 2.5), then 'ห้อง Isolate ผิดปกติ'.
+         * Otherwise, if 'เปิดระบบ' then 'ระบบและแรงดันปกติ'.
+         * If 'ปิดระบบ' then 'ระบบปิดอยู่'.
+         * @param {number} roomNumber The room number.
+         * @param {number} antePa Ante Room pressure.
+         * @param {number} isolationPa Isolation Room pressure.
+         * @param {string} systemStatusText The text status of the system (e.g., 'เปิดระบบ', 'ปิดระบบ').
+         * @returns {object} An object with text and textColorClass.
+         */
+        function getRoomSpecificStatusText(roomNumber, antePa, isolationPa, systemStatusText) {
+            let specificStatusText = '';
+            let specificTextColorClass = 'text-gray-500'; // Default neutral
+
+            // Check if system is open
+            if (systemStatusText === 'เปิดระบบ') {
+                // Condition: Isolation Room must be more negative than Ante Room by 2.5 Pa.
+                // So, if Isolation Room (Pa) is NOT < (Ante Room (Pa) - 2.5), it's abnormal.
+                // i.e., Isolation Room (Pa) >= (Ante Room (Pa) - 2.5) means abnormal.
+                if (isolationPa >= (antePa - 2.5)) {
+                    specificStatusText = `ห้อง Isolate ผิดปกติ`;
+                    specificTextColorClass = 'text-status-danger'; // Make it red for this specific warning
+                } else {
+                    specificStatusText = 'ระบบและแรงดันปกติ';
+                    specificTextColorClass = 'text-status-ok'; // Green for normal
+                }
+            } else { // System is closed
+                specificStatusText = 'ระบบปิดอยู่';
+                specificTextColorClass = 'text-gray-500'; // Neutral for closed
+            }
+
+            // Fallback if data is not available for primary pressure check
+            if (isNaN(antePa) || isNaN(isolationPa)) {
+                specificStatusText = 'ข้อมูลแรงดันไม่สมบูรณ์';
+                specificTextColorClass = 'text-status-warning';
+            }
+
+            return { text: specificStatusText, textColorClass: specificTextColorClass };
+        }
+
+
+        // Function to determine system on/off status and associated LED color
+        function getSystemOnOffStatus(systemStatusField) {
+            // Check if the field explicitly states "เปิดระบบ"
+            if (systemStatusField && typeof systemStatusField === 'string' && systemStatusField.includes('เปิดระบบ')) {
+                return { status: 'on', text: 'เปิดระบบ', color: 'bg-green-500' };
+            }
+            // If the field explicitly states "ปิดระบบ"
+            if (systemStatusField && typeof systemStatusField === 'string' && systemStatusField.includes('ปิดระบบ')) {
+                return { status: 'off', text: 'ปิดระบบ', color: 'bg-red-500' };
+            }
+            // Default to 'ปิดระบบ' (off) if the field is empty, undefined, or unrecognized
+            return { status: 'off', text: 'ปิดระบบ', color: 'bg-red-500' };
+        }
+
+        // Options for gauge.js
+        const gaugeOptions = {
+            angle: 0.15, // The span of the gauge arc
+            lineWidth: 0.44, // The line width
+            radiusScale: 1, // Relative gauge size
+            pointer: {
+                length: 0.6, // Relative to gauge radius
+                strokeWidth: 0.035, // The thickness
+                color: '#000000' // Fill color
+            },
+            limitMax: false,     // If false, max value increases automatically if value is higher than max
+            limitMin: false,     // If true, the minimum value will be displayed
+            colorStart: '#6FADCF',   // Colors. The first color of a linear gradient to give a styleable range
+            colorStop: '#8FC0DA',    // Old for linear gradient
+            strokeColor: '#E0E0E0',  // The gauge stroke color
+            generateGradient: false,
+            // Custom static zones for coloring
+            staticZones: [
+                { strokeStyle: "#10b981", min: GAUGE_MIN, max: -0.01 }, // Green for < 0
+                { strokeStyle: "#ef4444", min: 0, max: GAUGE_MAX }    // Red for >= 0
+            ],
+            // Add static labels for min and max on the gauge itself
+            staticLabels: {
+                font: "10px Inter, sans-serif",  // Font for labels, matching body
+                labels: [GAUGE_MIN, 0, GAUGE_MAX], // Print labels at min, zero, and max
+                color: "#333333",  // Label text color
+                fractionDigits: 0  // Numerical precision
+            },
+            // Custom text renderer to avoid default value display inside the gauge
+            // text: {
+            //     value: '', // This will be set by the gauge.set method
+            //     className: 'gauge-value-text', // Class applied to the text element
+            //     // The user wants the value above the gauge, so we won't customize gauge's internal text.
+            //     // Gauge.js by default doesn't show text if not configured.
+            // }
+        };
+
+
+        // Function to render the latest data (now using the last item from the fetched array)
+        function renderLatestData(data) {
+            latestDataContainer.innerHTML = ''; // Clear loading message
+            // Destroy existing gauge instances before re-rendering
+            for (const key in gaugeInstances) {
+                if (gaugeInstances.hasOwnProperty(key)) {
+                    gaugeInstances[key].destroy();
+                }
+            }
+            gaugeInstances = {}; // Clear the object
+
+            if (!data || data.length === 0) {
+                latestDataContainer.innerHTML = `
+                    <div class="card md:col-span-3 lg:col-span-3 p-8 text-center text-gray-600">
+                        <p>ไม่พบข้อมูลล่าสุด</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Use the last entry from the data array as the latest
+            const latestEntry = data[data.length - 1];
+
+            if (!latestEntry) {
+                latestDataContainer.innerHTML = `
+                    <div class="card md:col-span-3 lg:col-span-3 p-8 text-center text-gray-600">
+                        <p>ไม่พบข้อมูลล่าสุดที่ถูกต้อง</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Parse and format date and time for the latest entry
+            const latestDateObj = parseThaiTimestamp(latestEntry[normalizeKey('ประทับเวลา')]); // Use normalized key
+            let dateOnly = 'N/A';
+            let timeOnly = 'N/A';
+            if (latestDateObj) {
+                // toLocaleDateString should handle DD/MM/YYYY correctly with 'th-TH' locale
+                dateOnly = latestDateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                timeOnly = latestDateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            } else {
+                console.warn("Could not parse timestamp for latest entry:", latestEntry[normalizeKey('ประทับเวลา')]); // Use normalized key
+            }
+
+            // Function to create a room card
+            const createRoomCard = (roomNumber, entry, displayDate, displayTime) => {
+                // All keys are now normalized with underscores
+                const anteKey = normalizeKey(`Ante Room ${roomNumber} (Pa)`);
+                const isoKey = normalizeKey(`Isolation Room ${roomNumber} (Pa)`);
+                const cycleKey = normalizeKey(`รอบชั่วโมง ${roomNumber}`);
+                const systemStatusApiField = normalizeKey(`สถานะระบบ Negative Room ห้องที่ ${roomNumber}`);
+
+                const antePaRaw = entry[anteKey];
+                const isolationPaRaw = entry[isoKey];
+                const cycleHours = entry[cycleKey] || 'N/A'; // Use N/A if empty
+
+                // Convert to float for calculations, keep raw for display check (empty string vs NaN)
+                const antePa = parseFloat(antePaRaw);
+                const isolationPa = parseFloat(isolationPaRaw);
+
+                // Get pressure classification for individual meters
+                const antePressureClassification = getPressureClassification(antePa);
+                const isoPressureClassification = getPressureClassification(isolationPa);
+
+                // Get system on/off status for LED
+                const { text: systemStatusText, color: systemStatusLedColor } = getSystemOnOffStatus(entry[systemStatusApiField]);
+
+                // Get room-specific status text based on new logic
+                const { text: roomSpecificStatusText, textColorClass: roomSpecificTextColorClass } =
+                    getRoomSpecificStatusText(roomNumber, antePa, isolationPa, systemStatusText);
+
+                // Format pressure values with sign if numeric and not N/A
+                const displayAntePa = isNaN(antePa) ? (antePaRaw === "" ? "N/A" : antePaRaw) : ((antePa > 0 ? '+' : '') + antePa);
+                const displayIsolationPa = isNaN(isolationPa) ? (isolationPaRaw === "" ? "N/A" : isolationPaRaw) : ((isolationPa > 0 ? '+' : '') + isolationPa);
+
+                // IDs for gauge canvases
+                const anteGaugeId = `anteGaugeCanvas${roomNumber}`;
+                const isoGaugeId = `isoGaugeCanvas${roomNumber}`;
+
+                // HTML structure for a room card with gauge canvases
+                let cardHtml = `
+                    <div class="card text-center">
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">ห้องที่ ${roomNumber}</h3>
+                        <div class="flex items-center justify-center mb-4">
+                            <span class="w-4 h-4 rounded-full ${systemStatusLedColor} mr-2"></span> <!-- LED Indicator -->
+                            <span class="text-md font-medium text-gray-700">สถานะระบบ: ${systemStatusText}</span>
+                        </div>
+                        <div class="text-lg font-semibold mb-4 ${roomSpecificTextColorClass}">
+                            ${roomSpecificStatusText}
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- Ante Room Gauge -->
+                            <div class="data-point flex-col items-center p-2">
+                                <span class="text-label text-base mb-1">Ante Room ${roomNumber}:</span>
+                                <span class="value text-2xl font-extrabold ${antePressureClassification.textColorClass} mb-2">${displayAntePa} <span class="text-xl font-semibold">Pa</span></span>
+                                <div class="gauge-canvas-wrapper">
+                                    <canvas id="${anteGaugeId}" class="gauge-canvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Isolation Room Gauge -->
+                            <div class="data-point flex-col items-center p-2">
+                                <span class="text-label text-base mb-1">Isolation Room ${roomNumber}:</span>
+                                <span class="value text-2xl font-extrabold ${isoPressureClassification.textColorClass} mb-2">${displayIsolationPa} <span class="text-xl font-semibold">Pa</span></span>
+                                <div class="gauge-canvas-wrapper">
+                                    <canvas id="${isoGaugeId}" class="gauge-canvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- รอบชั่วโมง Counter -->
+                            <div class="data-point flex-col items-center p-2">
+                                <span class="text-label text-base mb-1">รอบชั่วโมง:</span>
+                                <span class="value text-3xl font-extrabold text-blue-600">${cycleHours}</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-4">อัปเดตเมื่อ: ${displayDate} เวลา ${displayTime}</p>
+                    </div>
+                `;
+
+                // Return HTML for insertion, then initialize gauges after DOM update
+                return { html: cardHtml, antePa, isolationPa, anteGaugeId, isoGaugeId };
+            };
+
+            // Render cards HTML
+            let roomCardsData = [];
+            roomCardsData.push(createRoomCard(1, latestEntry, dateOnly, timeOnly));
+            roomCardsData.push(createRoomCard(2, latestEntry, dateOnly, timeOnly));
+            roomCardsData.push(createRoomCard(3, latestEntry, dateOnly, timeOnly));
+
+            latestDataContainer.innerHTML = roomCardsData.map(d => d.html).join('');
+
+            // Initialize and set values for gauges after DOM has been updated
+            roomCardsData.forEach(roomData => {
+                const anteTarget = document.getElementById(roomData.anteGaugeId);
+                const isoTarget = document.getElementById(roomData.isoGaugeId);
+
+                // Ante Room Gauge
+                if (anteTarget) {
+                    const anteGauge = new Gauge(anteTarget).setOptions(gaugeOptions);
+                    anteGauge.minValue = GAUGE_MIN; // Ensure minValue is set correctly
+                    anteGauge.maxValue = GAUGE_MAX; // Ensure maxValue is set correctly
+                    anteGauge.set(roomData.antePa); // Set value
+                    gaugeInstances[roomData.anteGaugeId] = anteGauge; // Store instance
+                } else {
+                    console.error(`Could not find canvas for Ante Room ${roomData.roomNumber} gauge: ${roomData.anteGaugeId}`);
+                }
+
+                // Isolation Room Gauge
+                if (isoTarget) {
+                    const isoGauge = new Gauge(isoTarget).setOptions(gaugeOptions);
+                    isoGauge.minValue = GAUGE_MIN; // Ensure minValue is set correctly
+                    isoGauge.maxValue = GAUGE_MAX; // Ensure maxValue is set correctly
+                    isoGauge.set(roomData.isolationPa); // Set value
+                    gaugeInstances[roomData.isoGaugeId] = isoGauge; // Store instance
+                } else {
+                    console.error(`Could not find canvas for Isolation Room ${roomData.roomNumber} gauge: ${roomData.isoGaugeId}`);
+                }
+            });
+        }
+
+        /**
+         * Aggregates pressure data (min, max, avg) over a given period type (daily or monthly) and number of units.
+         * @param {Array<Object>} data The raw data fetched from the API.
+         * @param {string} periodType 'daily' or 'monthly'.
+         * @param {number} numUnits Number of days or months to aggregate for.
+         * @returns {Array<Object>} Aggregated data, sorted by date (oldest first).
+         */
+        function aggregatePeriodData(data, periodType, numUnits) {
+            const aggregated = {};
+            const endDate = new Date(); // Today's date
+            endDate.setHours(0, 0, 0, 0);
+
+            // Populate aggregated object with min/max/avg for each pressure point for each relevant day/month
+            data.forEach(entry => {
+                const timestamp = parseThaiTimestamp(entry[normalizeKey('ประทับเวลา')]);
+                if (!timestamp) return;
+
+                let key; // YYYY-MM-DD for daily, YYYY-MM for monthly
+                
+                const entryDate = new Date(timestamp);
+                entryDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
+                if (periodType === 'daily') {
+                    key = entryDate.toISOString().split('T')[0];
+                } else if (periodType === 'monthly') {
+                    key = entryDate.toISOString().substring(0, 7); // YYYY-MM
+                } else {
+                    console.error("Invalid periodType:", periodType);
+                    return;
+                }
+
+                if (!aggregated[key]) {
+                    aggregated[key] = { date: key }; // Store raw date key for processing labels later
+                    for (let r = 1; r <= 3; r++) {
+                        aggregated[key][`AR${r}`] = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
+                        aggregated[key][`IR${r}`] = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
+                    }
+                }
+
+                for (let r = 1; r <= 3; r++) {
+                    const anteKey = normalizeKey(`Ante Room ${r} (Pa)`);
+                    const isoKey = normalizeKey(`Isolation Room ${r} (Pa)`);
+                    const currentAntePa = parseFloat(entry[anteKey]);
+                    const currentIsoPa = parseFloat(entry[isoKey]);
+
+                    if (!isNaN(currentAntePa)) {
+                        aggregated[key][`AR${r}`].min = Math.min(aggregated[key][`AR${r}`].min, currentAntePa);
+                        aggregated[key][`AR${r}`].max = Math.max(aggregated[key][`AR${r}`].max, currentAntePa);
+                        aggregated[key][`AR${r}`].sum += currentAntePa;
+                        aggregated[key][`AR${r}`].count++;
+                    }
+                    if (!isNaN(currentIsoPa)) {
+                        aggregated[key][`IR${r}`].min = Math.min(aggregated[key][`IR${r}`].min, currentIsoPa);
+                        aggregated[key][`IR${r}`].max = Math.max(aggregated[key][`IR${r}`].max, currentIsoPa);
+                        aggregated[key][`IR${r}`].sum += currentIsoPa;
+                        aggregated[key][`IR${r}`].count++;
+                    }
+                }
+            });
+
+            const finalData = [];
+            for (let i = numUnits - 1; i >= 0; i--) {
+                const date = new Date(endDate);
+                let key;
+                let displayLabel;
+
+                if (periodType === 'daily') {
+                    date.setDate(endDate.getDate() - i);
+                    key = date.toISOString().split('T')[0];
+                    displayLabel = date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
+                } else if (periodType === 'monthly') {
+                    date.setMonth(endDate.getMonth() - i);
+                    // Set to first day of the month to ensure consistent key and label
+                    date.setDate(1); 
+                    key = date.toISOString().substring(0, 7);
+                    displayLabel = date.toLocaleDateString('th-TH', { month: 'short', year: 'numeric' });
+                }
+
+                const entry = aggregated[key];
+                const dailyEntry = { date: displayLabel }; // Initialize daily entry
+
+                for (let r = 1; r <= 3; r++) {
+                    if (entry && entry[`AR${r}`].count > 0) {
+                        dailyEntry[`AR${r}Min`] = entry[`AR${r}`].min;
+                        dailyEntry[`AR${r}Max`] = entry[`AR${r}`].max;
+                        dailyEntry[`AR${r}Avg`] = entry[`AR${r}`].sum / entry[`AR${r}`].count;
+                    } else {
+                        dailyEntry[`AR${r}Min`] = NaN;
+                        dailyEntry[`AR${r}Max`] = NaN;
+                        dailyEntry[`AR${r}Avg`] = NaN;
+                    }
+
+                    if (entry && entry[`IR${r}`].count > 0) {
+                        dailyEntry[`IR${r}Min`] = entry[`IR${r}`].min;
+                        dailyEntry[`IR${r}Max`] = entry[`IR${r}`].max;
+                        dailyEntry[`IR${r}Avg`] = entry[`IR${r}`].sum / entry[`IR${r}`].count;
+                    } else {
+                        dailyEntry[`IR${r}Min`] = NaN;
+                        dailyEntry[`IR${r}Max`] = NaN;
+                        dailyEntry[`IR${r}Avg`] = NaN;
+                    }
+                }
+                finalData.push(dailyEntry);
+            }
+
+            return finalData;
+        }
+
+        /**
+         * Renders (or updates) the Chart.js graphs for each pressure point.
+         * @param {Array<Object>} aggregatedData Aggregated data for charting.
+         */
+        function renderTrendCharts(aggregatedData) {
+            const labels = aggregatedData.map(d => d.date);
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'วันที่/เดือน', // Updated x-axis title
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'แรงดัน (Pa)',
+                        },
+                        min: GAUGE_MIN, // Use global gauge min for chart Y-axis
+                        max: GAUGE_MAX, // Use global gauge max for chart Y-axis
+                    }
+                }
+            };
+
+            const pressurePoints = [
+                { id: 'anteRoom1Chart', title: 'Ante Room 1 (Pa) Trend', prefix: 'AR1' },
+                { id: 'isolationRoom1Chart', title: 'Isolation Room 1 (Pa) Trend', prefix: 'IR1' },
+                { id: 'anteRoom2Chart', title: 'Ante Room 2 (Pa) Trend', prefix: 'AR2' },
+                { id: 'isolationRoom2Chart', title: 'Isolation Room 2 (Pa) Trend', prefix: 'IR2' },
+                { id: 'anteRoom3Chart', title: 'Ante Room 3 (Pa) Trend', prefix: 'AR3' },
+                { id: 'isolationRoom3Chart', title: 'Isolation Room 3 (Pa) Trend', prefix: 'IR3' }
+            ];
+
+            // Destroy existing chart instances
+            for (const key in chartInstances) {
+                if (chartInstances.hasOwnProperty(key)) {
+                    chartInstances[key].destroy();
+                }
+            }
+            chartInstances = {}; // Clear the object
+
+            pressurePoints.forEach(point => {
+                const ctx = document.getElementById(point.id).getContext('2d');
+                chartInstances[point.id] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'ค่าต่ำสุด',
+                                data: aggregatedData.map(d => d[`${point.prefix}Min`]),
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.1,
+                                fill: false,
+                            },
+                            {
+                                label: 'ค่าเฉลี่ย',
+                                data: aggregatedData.map(d => d[`${point.prefix}Avg`]),
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                tension: 0.1,
+                                fill: false,
+                            },
+                            {
+                                label: 'ค่าสูงสุด',
+                                data: aggregatedData.map(d => d[`${point.prefix}Max`]),
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                tension: 0.1,
+                                fill: false,
+                            }
+                        ]
+                    },
+                    options: chartOptions
+                });
+            });
+        }
+
+
+        // Function to render historical data table
+        function renderHistoricalData(data, selectedMonthYear) { // Changed selectedDate to selectedMonthYear
+            historicalDataTableBody.innerHTML = ''; // Clear previous data
+            noHistoricalDataMessage.classList.add('hidden');
+
+            const filteredData = data.filter(entry => {
+                const timestamp = parseThaiTimestamp(entry[normalizeKey('ประทับเวลา')]); // Use normalized key
+                if (!timestamp) {
+                    console.warn("Skipping entry due to unparseable timestamp in historical data:", entry[normalizeKey('ประทับเวลา')]);
+                    return false;
+                }
+                // Compare only the month and year part (YYYY-MM)
+                const entryMonthYear = timestamp.toISOString().substring(0, 7); // YYYY-MM
+                return entryMonthYear === selectedMonthYear;
+            });
+
+            if (filteredData.length === 0) {
+                historicalDataTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">
+                            ไม่มีข้อมูลสำหรับเดือน/ปีนี้
+                        </td>
+                    </tr>
+                `;
+                noHistoricalDataMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Sort filtered data by timestamp in descending order (latest first for historical table)
+            filteredData.sort((a, b) => {
+                const tsA = parseThaiTimestamp(a[normalizeKey('ประทับเวลา')]); // Use normalized key
+                const tsB = parseThaiTimestamp(b[normalizeKey('ประทับเวลา')]); // Use normalized key
+                // Handle cases where parsing fails, pushing them to the end or treating as 0
+                if (!tsA && !tsB) return 0;
+                if (!tsA) return 1;
+                if (!tsB) return -1;
+                return tsB.getTime() - tsA.getTime();
+            });
+
+            filteredData.forEach(entry => {
+                const row = document.createElement('tr');
+                // Use the normalized keys for accessing data, revert to original naming for table headers
+                const ante1 = entry[normalizeKey('Ante Room 1 (Pa)')] || 'N/A';
+                const iso1 = entry[normalizeKey('Isolation Room 1 (Pa)')] || 'N/A';
+                const ante2 = entry[normalizeKey('Ante Room 2 (Pa)')] || 'N/A';
+                const iso2 = entry[normalizeKey('Isolation Room 2 (Pa)')] || 'N/A';
+                const ante3 = entry[normalizeKey('Ante Room 3 (Pa)')] || 'N/A';
+                const iso3 = entry[normalizeKey('Isolation Room 3 (Pa)')] || 'N/A';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${entry[normalizeKey('ประทับเวลา')] || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${ante1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${iso1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${ante2}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${iso2}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${ante3}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${iso3}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${entry[normalizeKey('ผู้บันทึก')] || 'N/A'}</td>
+                `;
+                historicalDataTableBody.appendChild(row);
+            });
+        }
+
+        // Fetch data from API
+        async function fetchData() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                let rawData = await response.json();
+
+                // Clean JSON data: replace all whitespace in keys with underscores
+                allData = rawData.map(entry => {
+                    const cleanedEntry = {};
+                    for (const key in entry) {
+                        if (Object.prototype.hasOwnProperty.call(entry, key)) {
+                            const cleanedKey = normalizeKey(key);
+                            cleanedEntry[cleanedKey] = entry[key];
+                        }
+                    }
+                    return cleanedEntry;
+                });
+
+                renderLatestData(allData);
+
+                // Set default month for month picker to the month of the very last entry
+                if (allData.length > 0) {
+                    const latestEntry = allData[allData.length - 1]; // Get the last entry
+                    const date = parseThaiTimestamp(latestEntry[normalizeKey('ประทับเวลา')]); // Use normalized key
+                    if (date) {
+                        // Format date to YYYY-MM for input type="month"
+                        const formattedMonthYear = date.toISOString().substring(0, 7);
+                        monthPicker.value = formattedMonthYear;
+                        renderHistoricalData(allData, formattedMonthYear);
+                    } else {
+                        console.warn("Could not set month picker default as timestamp of latest entry is unparseable:", latestEntry[normalizeKey('ประทับเวลา')]);
+                    }
+                } else {
+                    monthPicker.value = ''; // Clear month picker if no data
+                }
+
+                // Render initial trend charts (30 days by default)
+                const aggregated30DaysData = aggregatePeriodData(allData, 'daily', 30);
+                renderTrendCharts(aggregated30DaysData);
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                let errorMessage = "ไม่สามารถดึงข้อมูลจาก API ได้: " + error.message;
+                // Add specific advice for HTTP 400 error
+                if (error.message.includes("HTTP error! status: 400")) {
+                    errorMessage += "\n\nข้อเสนอแนะ: ปัญหานี้อาจเกิดจาก URL API ไม่ถูกต้อง, Google Sheet ไม่ได้ตั้งค่าการแชร์เป็นสาธารณะ, หรือบริการ opensheet.elk.sh มีปัญหา กรุณาตรวจสอบการตั้งค่าเหล่านี้ครับ";
+                }
+                showMessageBox("ข้อผิดพลาด", errorMessage);
+                latestDataContainer.innerHTML = `
+                    <div class="card md:col-span-3 lg:col-span-3 p-8 text-center text-red-600">
+                        <p>เกิดข้อผิดพลาดในการโหลดข้อมูล. กรุณาลองใหม่อีกครั้ง</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Event listeners for trend buttons
+        show30DaysTrendButton.addEventListener('click', () => {
+            show30DaysTrendButton.classList.remove('bg-gray-300', 'text-gray-800');
+            show30DaysTrendButton.classList.add('bg-blue-600', 'text-white');
+            showYearlyTrendButton.classList.remove('bg-blue-600', 'text-white');
+            showYearlyTrendButton.classList.add('bg-gray-300', 'text-gray-800');
+
+            const aggregatedData = aggregatePeriodData(allData, 'daily', 30);
+            renderTrendCharts(aggregatedData);
+        });
+
+        showYearlyTrendButton.addEventListener('click', () => {
+            showYearlyTrendButton.classList.remove('bg-gray-300', 'text-gray-800');
+            showYearlyTrendButton.classList.add('bg-blue-600', 'text-white');
+            show30DaysTrendButton.classList.remove('bg-blue-600', 'text-white');
+            show30DaysTrendButton.classList.add('bg-gray-300', 'text-gray-800');
+
+            const aggregatedData = aggregatePeriodData(allData, 'monthly', 12); // Last 12 months for yearly trend
+            renderTrendCharts(aggregatedData);
+        });
+
+
+        // Event listener for month picker change
+        monthPicker.addEventListener('change', (event) => {
+            const selectedMonthYear = event.target.value; // Format:YYYY-MM
+            if (allData.length > 0) {
+                renderHistoricalData(allData, selectedMonthYear);
+            }
+        });
+
+        // Initial data fetch on page load
+        window.onload = fetchData;
+
+    </script>
+</body>
+</html>
